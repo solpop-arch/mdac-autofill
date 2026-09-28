@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MDAC Autofill</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", sans-serif; max-width: 680px; margin: 40px auto; padding: 0 16px; line-height: 1.6; color: #202124; background: #fff; }
+  a.bm { display: inline-block; padding: 8px 16px; background: #1a73e8; color: #fff; border-radius: 6px; text-decoration: none; font-weight: 600; cursor: grab; }
+  button { padding: 7px 12px; }
+  code, kbd { background: #f1f3f4; padding: 1px 4px; border-radius: 3px; }
+  .en { color: #5f6368; }
+  h2 { margin-top: 32px; font-size: 1.1em; }
+</style>
+</head>
+<body>
+<h1>MDAC Autofill</h1>
+<p>말레이시아 디지털 입국카드(MDAC) 기본 정보를 한 번에 채우는 북마클릿입니다. 데스크톱 크롬 기준입니다.<br>
+<span class="en">A bookmarklet that fills your usual details into the Malaysia Digital Arrival Card (MDAC). For desktop Chrome.</span></p>
+
+<p><a class="bm" id="bm" href="#">MDAC 채우기</a> <button id="copy">주소 복사 / Copy URL</button></p>
+
+<h2>설치 / Install</h2>
+<ul>
+  <li>버튼을 북마크바로 끌어다 놓습니다. 북마크바가 안 보이면 <kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> (윈도우 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>).<br>
+  <span class="en">Drag the button to your bookmarks bar. Show the bar with ⌘/Ctrl+Shift+B.</span></li>
+  <li>끌어 놓기가 안 되면 "주소 복사"를 누르고 새 북마크의 URL 칸에 붙여넣습니다.<br>
+  <span class="en">Or click "Copy URL" and paste it as the URL of a new bookmark.</span></li>
+</ul>
+
+<h2>사용 / Use</h2>
+<ol>
+  <li><a href="https://imigresen-online.imi.gov.my/mdac/main?registerMain">MDAC 등록 페이지</a>에서 처음 한 번은 직접 입력하고 북마크를 누르면 기본값으로 저장됩니다.<br>
+  <span class="en">First time: fill in the <a href="https://imigresen-online.imi.gov.my/mdac/main?registerMain">official form</a> by hand, then click the bookmark to save it.</span></li>
+  <li>다음부터는 페이지를 열고 북마크를 누르면 채워집니다.<br>
+  <span class="en">Next time: open the form and click the bookmark to fill it.</span></li>
+  <li>입국일·출국일·편명, 캡차, 제출은 직접 합니다.<br>
+  <span class="en">Arrival/departure dates, flight number, the captcha and Submit are up to you.</span></li>
+  <li>저장한 값을 바꾸려면 새 값을 입력하고 북마크를 누른 뒤 "취소" → "확인".<br>
+  <span class="en">To update the saved values: enter new ones, click the bookmark, then Cancel → OK.</span></li>
+</ol>
+
+<h2>개인정보 / Privacy</h2>
+<p>입력값은 서버로 보내지 않고 내 크롬의 <code>imigresen-online.imi.gov.my</code> 사이트 저장소(localStorage)에만 남습니다. 사이트 데이터를 지우면 함께 지워집니다. 공식 MDAC 도메인이 아니면 작동하지 않습니다. 코드는 이 페이지 소스에 모두 있습니다.<br>
+<span class="en">Nothing is sent anywhere: values stay in your own Chrome's localStorage for the official MDAC site and are cleared with that site's data. It refuses to run on any other domain. The full code is in this page's source.</span></p>
+
+<script type="text/plain" id="src">
+(async () => {
+  const HOST = 'imigresen-online.imi.gov.my';
+  if (location.hostname !== HOST || !document.forms.permohonan) { alert('MDAC 공식 등록 페이지(' + HOST + ')에서만 작동합니다.\nOnly works on the official MDAC registration page.'); return; }
+  const KEY = 'mdacDefaults';
+  const TEXT = ['name', 'passNo', 'email', 'confirmEmail', 'mobile', 'accommodationAddress1', 'accommodationAddress2'];
+  const DATE = ['dob', 'passExpDte'];
+  /* 순서가 중요하다: 국적을 바꾸면 전화 국가코드 목록을, 주를 바꾸면 도시 목록을 서버에서 다시 불러온다 */
+  const SELECT = ['sex', 'pob', 'nationality', 'region', 'trvlMode', 'embark', 'accommodationStay', 'accommodationState', 'accommodationCity'];
+  const LAST = ['accommodationPostcode'];
+  const byId = (id) => document.getElementById(id);
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const idle = async () => { await sleep(150); for (let i = 0; i < 100 && window.jQuery && jQuery.active > 0; i++) await sleep(100); };
+  const read = () => {
+    const d = {};
+    for (const id of [...TEXT, ...DATE, ...SELECT, ...LAST]) {
+      const el = byId(id);
+      if (el && el.value) d[id] = el.tagName === 'INPUT' && el.classList.contains('uppercase') ? el.value.toUpperCase() : el.value;
+    }
+    return d;
+  };
+  const save = () => {
+    const d = read();
+    if (!d.name || !d.passNo) { alert('이름과 여권번호를 먼저 입력한 뒤 다시 누르세요.\nEnter at least your name and passport number first.'); return; }
+    localStorage.setItem(KEY, JSON.stringify(d));
+    alert('저장했습니다 (' + Object.keys(d).length + '개 칸). 입국일·출국일·편명은 저장하지 않습니다.\nSaved ' + Object.keys(d).length + ' fields. Dates and flight number are not saved.');
+  };
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+  if (!saved) { if (confirm('저장된 기본 정보가 없습니다. 지금 화면에 입력된 값을 저장할까요?\nNo saved details yet. Save what is on the form now?')) save(); return; }
+  if (!confirm('저장된 기본 정보로 채울까요?\n(취소하면 지금 화면 값으로 다시 저장할지 묻습니다)\n\nFill the form with your saved details?\n(Cancel to overwrite them with what is on the form now)')) {
+    if (confirm('지금 화면의 값으로 기본 정보를 덮어쓸까요?\nOverwrite saved details with the current form?')) save();
+    return;
+  }
+  const setText = (id) => {
+    const el = byId(id);
+    if (!el || saved[id] == null) return;
+    el.value = saved[id];
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  const missing = [];
+  TEXT.forEach(setText);
+  for (const id of DATE) {
+    if (!saved[id]) continue;
+    const $el = jQuery('#' + id);
+    $el.val(saved[id]);
+    try { $el.datepicker('update', saved[id]); } catch (e) {}
+  }
+  for (const id of SELECT) {
+    const el = byId(id);
+    const v = saved[id];
+    if (!el || !v) continue;
+    if (![...el.options].some((o) => o.value === v)) { missing.push(id); continue; }
+    el.value = v;
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    await idle();
+  }
+  LAST.forEach(setText);
+  alert('채웠습니다. / Filled.' + (missing.length ? '\n선택지를 못 찾은 칸 / Not found: ' + missing.join(', ') : '') + '\n입국일·출국일·편명, 캡차, 제출은 직접 해 주세요.\nPlease enter the dates and flight number, solve the captcha and submit yourself.');
+})();
+</script>
+<script>
+  const href = 'javascript:' + encodeURIComponent(document.getElementById('src').textContent.trim());
+  document.getElementById('bm').href = href;
+  document.getElementById('copy').onclick = () => navigator.clipboard.writeText(href).then(() => alert('복사했습니다. 새 북마크의 URL 칸에 붙여넣으세요.\nCopied. Paste it as the URL of a new bookmark.'));
+</script>
+</body>
+</html>
